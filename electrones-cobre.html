@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Electrones en un cable de cobre</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/p5.min.js"></script>
+<style>
+  :root{--bg:#101a22;--panel:#182733;--tx:#e8e2d8;--mut:#9fb0bd;--cu:#c9804f;--el:#5ad1ff;--ac:#f2c14e}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--tx);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:14px}
+  main{max-width:900px;margin:0 auto}
+  h1{font-size:1.25rem;margin:0 0 4px}
+  p{margin:0 0 12px;color:var(--mut);font-size:.95rem;line-height:1.45}
+  #c{border-radius:10px;overflow:hidden;background:var(--panel);line-height:0}
+  .ctl{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;margin-top:12px}
+  .modes{display:flex;gap:6px;flex-wrap:wrap}
+  .modes button{background:var(--panel);color:var(--tx);border:2px solid #2c4254;border-radius:8px;padding:9px 13px;font-size:.95rem;cursor:pointer}
+  .modes button[aria-pressed="true"]{border-color:var(--ac);background:#223647}
+  button:focus-visible,input:focus-visible{outline:3px solid var(--ac);outline-offset:2px}
+  label{font-size:.95rem;display:flex;gap:8px;align-items:center;flex:1 1 220px}
+  input[type=range]{flex:1;accent-color:var(--ac)}
+  #msg{margin-top:12px;min-height:2.6em;color:var(--tx);font-size:1rem}
+</style>
+</head>
+<body>
+<main>
+  <h1>¿Cómo se mueven los electrones en un cable de cobre?</h1>
+  <p>Zoom al interior del cable: los átomos de cobre (naranja) quedan fijos y los electrones libres (azul) se mueven entre ellos.</p>
+  <div id="c"></div>
+  <div class="ctl">
+    <div class="modes" id="modes">
+      <button data-m="0" aria-pressed="true">Sin corriente</button>
+      <button data-m="1" aria-pressed="false">Corriente continua</button>
+      <button data-m="2" aria-pressed="false">Corriente alterna</button>
+    </div>
+    <label>Intensidad <input type="range" id="k" min="0" max="100" value="60" aria-label="Intensidad del campo"></label>
+  </div>
+  <div id="msg" aria-live="polite"></div>
+</main>
+<script>
+let mode = 0, els = [], ions = [], k = 0.6, ph = 0;
+const WY1 = 170, WY2 = 330;
+const MSG = [
+  "Sin corriente: los electrones rebotan al azar en todas direcciones. En promedio no avanzan hacia ningún lado.",
+  "Corriente continua: el imán y el cable se mueven uno respecto al otro. Los electrones siguen rebotando, pero avanzan en conjunto hacia la izquierda (el sentido convencional de la corriente es hacia la derecha).",
+  "Corriente alterna: al ir y venir el imán, el avance neto de los electrones cambia de sentido una y otra vez, como en tu generador."
+];
+
+function setup() {
+  const w = min(windowWidth - 28, 900);
+  createCanvas(w, 360).parent('c');
+  initParts();
+  setMode(0);
+  document.querySelectorAll('#modes button').forEach(b => b.onclick = () => setMode(+b.dataset.m));
+  document.getElementById('k').oninput = e => k = e.target.value / 100;
+}
+function windowResized() { resizeCanvas(min(windowWidth - 28, 900), 360); initParts(); }
+
+function initParts() {
+  ions = []; els = [];
+  for (let y = WY1 + 30; y < WY2; y += 50)
+    for (let x = 30 + ((y / 50) % 2) * 25; x < width - 20; x += 50) ions.push({ x, y });
+  for (let i = 0; i < 70; i++) els.push({ x: random(20, width - 20), y: random(WY1 + 10, WY2 - 10), vx: 0, vy: 0, t: 0 });
+}
+function setMode(m) {
+  mode = m;
+  document.querySelectorAll('#modes button').forEach(b => b.setAttribute('aria-pressed', +b.dataset.m === m));
+  document.getElementById('msg').textContent = MSG[m];
+}
+function drift() {
+  if (mode === 0) return 0;
+  if (mode === 1) return k;
+  return k * sin(ph);
+}
+
+function draw() {
+  background('#182733');
+  ph += 0.035;
+  const d = drift();
+
+  // imán
+  if (mode > 0) {
+    const mx = width / 2 + (mode === 2 ? min(width / 2 - 90, 150) * sin(ph) : 0);
+    noStroke();
+    fill('#d9534f'); rect(mx - 60, 40, 60, 40, 6, 0, 0, 6);
+    fill('#4a86d9'); rect(mx, 40, 60, 40, 0, 6, 6, 0);
+    fill(255); textAlign(CENTER, CENTER); textSize(18);
+    text('N', mx - 30, 60); text('S', mx + 30, 60);
+    stroke(255, 255, 255, 50); strokeWeight(1.5); noFill();
+    for (let i = -2; i <= 2; i++) line(mx + i * 22, 84, mx + i * 22, WY1 - 4);
+  }
+
+  // cable
+  noStroke(); fill('#2a1a12'); rect(10, WY1, width - 20, WY2 - WY1, 14);
+  stroke('#c9804f'); strokeWeight(3); noFill(); rect(10, WY1, width - 20, WY2 - WY1, 14);
+
+  // átomos de cobre
+  for (const a of ions) {
+    noStroke(); fill('#c9804f'); circle(a.x, a.y, 30);
+    fill('#2a1a12'); textAlign(CENTER, CENTER); textSize(16); text('+', a.x, a.y);
+  }
+
+  // electrones
+  for (const e of els) {
+    if (--e.t <= 0) {
+      const a = random(TWO_PI), s = random(2, 4.5);
+      e.vx = cos(a) * s; e.vy = sin(a) * s; e.t = floor(random(6, 22));
+    }
+    e.x += e.vx - d * 2.4;
+    e.y += e.vy;
+    if (e.x < 14) e.x += width - 28;
+    if (e.x > width - 14) e.x -= width - 28;
+    if (e.y < WY1 + 8) { e.y = WY1 + 8; e.vy = abs(e.vy); }
+    if (e.y > WY2 - 8) { e.y = WY2 - 8; e.vy = -abs(e.vy); }
+    noStroke(); fill('#5ad1ff'); circle(e.x, e.y, 9);
+  }
+
+  // indicador de avance neto
+  const cy = 345, cx = width / 2;
+  fill('#9fb0bd'); noStroke(); textSize(13); textAlign(CENTER, CENTER);
+  if (abs(d) < 0.03) {
+    text('Avance neto de los electrones: ninguno', cx, cy);
+  } else {
+    const dir = d > 0 ? -1 : 1, L = 20 + 70 * abs(d);
+    stroke('#f2c14e'); strokeWeight(3);
+    line(cx - dir * L / 2, cy, cx + dir * L / 2, cy);
+    line(cx + dir * L / 2, cy, cx + dir * (L / 2 - 8), cy - 5);
+    line(cx + dir * L / 2, cy, cx + dir * (L / 2 - 8), cy + 5);
+    noStroke(); text('Avance neto de los electrones', cx + 150 * (-1), cy);
+  }
+}
+</script>
+</body>
+</html>
